@@ -3,6 +3,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
@@ -159,9 +160,12 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void resilience() {
-        //todo: change code as you need
         Flux<String> content = getFilesContent()
-                .flatMap(Function.identity()); //start from here
+                .flatMap(mono -> mono
+                        .onErrorResume(e -> {
+                            System.out.println("Error occurred " + e);
+                            return Mono.empty();
+                        })); //start from here
 
         //don't change below this line
         StepVerifier.create(content)
@@ -176,8 +180,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void its_hot_in_here() {
         Mono<Integer> temperature = temperatureSensor()
-                //todo: change this line only
-                ;
+                .retry();
 
         StepVerifier.create(temperature)
                 .expectNext(34)
@@ -192,8 +195,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void back_off() {
         Mono<String> connection_result = establishConnection()
-                //todo: change this line only
-                ;
+                .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(5)));
 
         StepVerifier.create(connection_result)
                 .expectNext("connection_established")
@@ -207,9 +209,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void good_old_polling() {
-        //todo: change code as you need
-        Flux<String> alerts = null;
-        nodeAlerts();
+        Flux<String> alerts = nodeAlerts()
+                .repeatWhenEmpty(it -> it.delayElements(Duration.ofSeconds(1)))
+                .repeat();
 
         //don't change below this line
         StepVerifier.create(alerts.take(2))
